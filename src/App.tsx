@@ -7,7 +7,10 @@ import { Workout } from './views/Workout'
 import { Body } from './views/Body'
 import { Achievements } from './views/Achievements'
 import { AskClaude } from './views/AskClaude'
+import { SyncSettings } from './views/SyncSettings'
 import { Toast } from './components/ui'
+import { isConfigured } from './sync/client'
+import { runSync } from './sync/engine'
 
 type View = 'inicio' | 'entreno' | 'cuerpo' | 'logros' | 'oraculo'
 
@@ -24,6 +27,7 @@ export default function App() {
   const [profileId, setProfileId] = useState<string | null>(() => localStorage.getItem('levelup.profile'))
   const [view, setView] = useState<View>('inicio')
   const [toast, setToast] = useState<string | null>(null)
+  const [showSync, setShowSync] = useState(false)
 
   useEffect(() => {
     initDB().then(() => setReady(true))
@@ -36,6 +40,26 @@ export default function App() {
     const t = setTimeout(() => setToast(null), 2600)
     return () => clearTimeout(t)
   }, [toast])
+
+  // Auto-sync: al abrir la app, cada 60s, y al volver a ella (foco/visibilidad).
+  useEffect(() => {
+    if (!ready) return
+    const trigger = () => {
+      if (isConfigured() && navigator.onLine) runSync().catch(() => {})
+    }
+    trigger()
+    const interval = setInterval(trigger, 60_000)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') trigger()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('online', trigger)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('online', trigger)
+    }
+  }, [ready])
 
   if (!ready) return null
 
@@ -54,19 +78,24 @@ export default function App() {
     <div className="app-shell">
       <header className="app-header">
         <span className="app-title">LEVEL UP</span>
-        <button
-          className="profile-chip"
-          onClick={() => {
-            localStorage.removeItem('levelup.profile')
-            setProfileId(null)
-            setView('inicio')
-          }}
-          title="Cambiar de personaje"
-        >
-          <span className="avatar">{profile?.emoji ?? '⚔️'}</span>
-          {profile?.name ?? ''}
-          <span className="muted" style={{ fontSize: 11 }}>⇄</span>
-        </button>
+        <div className="row" style={{ gap: 8 }}>
+          <button className="icon-btn" onClick={() => setShowSync(true)} title="Sincronización">
+            ☁️
+          </button>
+          <button
+            className="profile-chip"
+            onClick={() => {
+              localStorage.removeItem('levelup.profile')
+              setProfileId(null)
+              setView('inicio')
+            }}
+            title="Cambiar de personaje"
+          >
+            <span className="avatar">{profile?.emoji ?? '⚔️'}</span>
+            {profile?.name ?? ''}
+            <span className="muted" style={{ fontSize: 11 }}>⇄</span>
+          </button>
+        </div>
       </header>
 
       {view === 'inicio' && <Dashboard profileId={profileId} />}
@@ -88,6 +117,7 @@ export default function App() {
         ))}
       </nav>
 
+      {showSync && <SyncSettings onClose={() => setShowSync(false)} />}
       {toast && <Toast message={toast} />}
     </div>
   )
