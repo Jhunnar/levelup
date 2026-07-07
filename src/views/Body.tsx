@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import { addPhoto, logBodyWeight, logMeasurement } from '../game/engine'
+import { resizePhoto } from '../utils/image'
 import { LineChart, Modal } from '../components/ui'
 import { MEASURE_KEYS, nowISO, uid, type Goal, type MeasureKey } from '../types'
 
@@ -37,6 +38,7 @@ export function Body({ profileId, onXp }: { profileId: string; onXp: (msg: strin
 
 function WeightTab({ profileId, onXp }: { profileId: string; onXp: (msg: string) => void }) {
   const [value, setValue] = useState('')
+  const profile = useLiveQuery(() => db.profiles.get(profileId), [profileId])
   const logs = useLiveQuery(
     async () =>
       (await db.bodyLogs.where('profileId').equals(profileId).toArray()).sort((a, b) =>
@@ -95,6 +97,20 @@ function WeightTab({ profileId, onXp }: { profileId: string; onXp: (msg: string)
               </div>
               <div className="k">Desde el inicio</div>
             </div>
+            {profile?.heightCm ? (
+              <div className="mini-stat">
+                <div className="v">
+                  {(logs[logs.length - 1].weightKg / Math.pow(profile.heightCm / 100, 2)).toFixed(1)}
+                </div>
+                <div className="k">IMC</div>
+              </div>
+            ) : null}
+            {profile?.heightCm ? (
+              <div className="mini-stat">
+                <div className="v">{profile.heightCm} cm</div>
+                <div className="k">Altura</div>
+              </div>
+            ) : null}
           </div>
         </div>
       )}
@@ -229,14 +245,7 @@ function PhotosTab({ profileId, onXp }: { profileId: string; onXp: (msg: string)
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    // redimensiona a máx 1200px para no llenar el almacenamiento
-    const img = await createImageBitmap(file)
-    const scale = Math.min(1, 1200 / Math.max(img.width, img.height))
-    const canvas = document.createElement('canvas')
-    canvas.width = Math.round(img.width * scale)
-    canvas.height = Math.round(img.height * scale)
-    canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
-    const blob = await new Promise<Blob>((res) => canvas.toBlob((b) => res(b!), 'image/jpeg', 0.82))
+    const blob = await resizePhoto(file)
     const xp = await addPhoto(profileId, blob)
     onXp(`📸 Foto guardada · +${xp} XP`)
     e.target.value = ''

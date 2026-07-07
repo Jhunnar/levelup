@@ -4,6 +4,7 @@ import { db } from '../db'
 import type { Exercise, Routine, Session, SetEntry } from '../types'
 import { nowISO, uid } from '../types'
 import { finishSession, type FinishResult } from '../game/engine'
+import { suggestWeight } from '../game/suggest'
 import { ExercisePicker } from './ExercisePicker'
 import { Modal } from '../components/ui'
 import { RoutineEditor } from './Routines'
@@ -124,6 +125,14 @@ function ActiveSession({
   const exercises = useLiveQuery(() => db.exercises.toArray(), [])
   const exMap = new Map((exercises ?? []).map((e) => [e.id, e]))
 
+  // perfil + último peso corporal, para sugerir pesos iniciales
+  const profile = useLiveQuery(() => db.profiles.get(session.profileId), [session.profileId])
+  const latestWeight = useLiveQuery(async () => {
+    const logs = await db.bodyLogs.where('profileId').equals(session.profileId).toArray()
+    if (logs.length === 0) return null
+    return logs.sort((a, b) => a.date.localeCompare(b.date))[logs.length - 1].weightKg
+  }, [session.profileId])
+
   // mejores marcas anteriores para mostrar "última vez"
   const prevBest = useLiveQuery(async () => {
     const all = await db.sessions.where('profileId').equals(session.profileId).toArray()
@@ -222,10 +231,22 @@ function ActiveSession({
                 ✕
               </button>
             </div>
-            {prev && (
+            {prev ? (
               <div className="prev-hint">
                 Tu mejor marca: <b className="gold-text">{prev.weight} kg × {prev.reps}</b>
               </div>
+            ) : (
+              (() => {
+                const sug = suggestWeight(profile, latestWeight ?? null, ex.exerciseId)
+                return sug ? (
+                  <div className="prev-hint">
+                    💡 Sugerido para empezar:{' '}
+                    <b style={{ color: 'var(--purple-soft)' }}>
+                      ~{sug.weight} kg{sug.perDumbbell ? ' por mancuerna' : ''} × 8-10
+                    </b>
+                  </div>
+                ) : null
+              })()
             )}
             <div className="set-labels">
               <span>#</span>

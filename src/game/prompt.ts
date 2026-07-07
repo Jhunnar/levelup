@@ -1,5 +1,5 @@
 import { db } from '../db'
-import type { Session } from '../types'
+import { ageFrom, EXPERIENCE_LABELS, GOAL_LABELS, type Session } from '../types'
 
 // ---- Construye el resumen de datos para pegar en Claude ----
 
@@ -26,6 +26,17 @@ export async function buildClaudePrompt(
   parts.push(
     `Soy ${profile?.name ?? 'un usuario'} y uso una app de seguimiento de gym. Estos son mis datos reales de entrenamiento. Actúa como mi entrenador personal y responde a mi pregunta al final.`
   )
+
+  if (profile?.onboardedAt) {
+    const info: string[] = []
+    if (profile.sex) info.push(profile.sex === 'M' ? 'Hombre' : 'Mujer')
+    if (profile.birthDate) info.push(`${ageFrom(profile.birthDate)} años`)
+    if (profile.heightCm) info.push(`${profile.heightCm} cm`)
+    if (profile.experience) info.push(`experiencia: ${EXPERIENCE_LABELS[profile.experience].toLowerCase()}`)
+    if (profile.goal) info.push(`objetivo: ${GOAL_LABELS[profile.goal].toLowerCase()}`)
+    if (profile.daysPerWeek) info.push(`entreno ${profile.daysPerWeek} días/semana`)
+    if (info.length > 0) parts.push(`\n## Sobre mí\n${info.join(' · ')}`)
+  }
 
   if (opts.includeSessions) {
     const cutoff = new Date()

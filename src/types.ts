@@ -1,11 +1,46 @@
 // ---- Modelo de datos (sync-ready: todo lleva id + updatedAt) ----
 
+export type Sex = 'M' | 'F'
+export type Experience = 'nuevo' | 'poco' | 'medio' | 'avanzado'
+export type TrainingGoal = 'grasa' | 'musculo' | 'fuerza' | 'salud'
+
 export interface Profile {
   id: string
   name: string
   emoji: string
   createdAt: string
   updatedAt: string
+  // datos del onboarding (opcionales hasta completarlo)
+  sex?: Sex
+  birthDate?: string // YYYY-MM-DD
+  heightCm?: number
+  experience?: Experience
+  goal?: TrainingGoal
+  daysPerWeek?: number
+  onboardedAt?: string
+}
+
+export const EXPERIENCE_LABELS: Record<Experience, string> = {
+  nuevo: 'Nunca he entrenado',
+  poco: 'Menos de 6 meses',
+  medio: 'De 6 meses a 2 años',
+  avanzado: 'Más de 2 años',
+}
+
+export const GOAL_LABELS: Record<TrainingGoal, string> = {
+  grasa: 'Perder grasa',
+  musculo: 'Ganar músculo',
+  fuerza: 'Ganar fuerza',
+  salud: 'Salud y energía',
+}
+
+export function ageFrom(birthDate: string): number {
+  const b = new Date(birthDate)
+  const now = new Date()
+  let age = now.getFullYear() - b.getFullYear()
+  const m = now.getMonth() - b.getMonth()
+  if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age--
+  return age
 }
 
 export type MuscleGroup =

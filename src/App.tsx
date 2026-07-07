@@ -7,6 +7,7 @@ import { Workout } from './views/Workout'
 import { Body } from './views/Body'
 import { Achievements } from './views/Achievements'
 import { AskClaude } from './views/AskClaude'
+import { Onboarding } from './views/Onboarding'
 import { SyncSettings } from './views/SyncSettings'
 import { Toast } from './components/ui'
 import { isConfigured } from './sync/client'
@@ -28,6 +29,7 @@ export default function App() {
   const [view, setView] = useState<View>('inicio')
   const [toast, setToast] = useState<string | null>(null)
   const [showSync, setShowSync] = useState(false)
+  const [onboarding, setOnboarding] = useState(false)
 
   useEffect(() => {
     initDB().then(() => setReady(true))
@@ -40,6 +42,15 @@ export default function App() {
     const t = setTimeout(() => setToast(null), 2600)
     return () => clearTimeout(t)
   }, [toast])
+
+  // Onboarding: se activa al cargar un perfil sin forjar (y no se desmonta
+  // a mitad aunque el perfil se actualice; lo cierra su propio botón final)
+  useEffect(() => {
+    setOnboarding(false)
+  }, [profileId])
+  useEffect(() => {
+    if (profile && !profile.onboardedAt) setOnboarding(true)
+  }, [profile])
 
   // Auto-sync: al abrir la app, cada 60s, y al volver a ella (foco/visibilidad).
   useEffect(() => {
@@ -72,6 +83,10 @@ export default function App() {
         }}
       />
     )
+  }
+
+  if (profile && onboarding) {
+    return <Onboarding profile={profile} onDone={() => setOnboarding(false)} />
   }
 
   return (
