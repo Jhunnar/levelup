@@ -29,24 +29,31 @@ jobs:
       - name: Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Instalar plataforma Android 36
+      - name: Aceptar licencias e instalar plataformas
         run: |
-          yes | sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" >/dev/null
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager "platform-tools" "platforms;android-34" "platforms;android-35" "build-tools;34.0.0" "build-tools;35.0.0" >/dev/null
 
       - name: Instalar dependencias
         run: npm ci
 
-      - name: Compilar web
+      - name: Compilar web (Vite)
         run: npm run build
 
-      - name: Sincronizar Capacitor
+      - name: Generar proyecto Android (Capacitor)
+        run: npx cap add android
+
+      - name: Generar iconos y splash
+        run: npx @capacitor/assets generate --android
+
+      - name: Sincronizar web → Android
         run: npx cap sync android
 
       - name: Compilar APK (debug)
         run: |
           chmod +x android/gradlew
           cd android
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Renombrar APK
         run: cp android/app/build/outputs/apk/debug/app-debug.apk LevelUp.apk
@@ -56,6 +63,7 @@ jobs:
         with:
           name: LevelUp-APK
           path: LevelUp.apk
+          if-no-files-found: error
 
       - name: Publicar APK en Release descargable
         env:
@@ -64,4 +72,4 @@ jobs:
           gh release delete apk-latest --yes --cleanup-tag 2>/dev/null || true
           gh release create apk-latest LevelUp.apk \
             --title "Level Up — APK (última versión)" \
-            --notes "Descarga **LevelUp.apk** en tu Android e instálala. Si te avisa de 'origen desconocido', permite la instalación (es tu propia app)."
+            --notes "Descarga **LevelUp.apk** en tu Android e instálala. Si Android avisa de 'origen desconocido', permite la instalación (es tu propia app)."
