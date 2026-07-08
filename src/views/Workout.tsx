@@ -40,7 +40,7 @@ export function Workout({ profileId }: { profileId: string }) {
 
       {tab === 'hoy' &&
         (active === undefined ? null : active ? (
-          <ActiveSession session={active} onFinished={setResult} />
+          <ActiveSession key={active.id} initialSession={active} onFinished={setResult} />
         ) : (
           <StartSession profileId={profileId} />
         ))}
@@ -110,17 +110,31 @@ function StartSession({ profileId }: { profileId: string }) {
 // ---------- Sesión activa ----------
 
 function ActiveSession({
-  session,
+  initialSession,
   onFinished,
 }: {
-  session: Session
+  initialSession: Session
   onFinished: (r: FinishResult) => void
 }) {
+  // La sesión activa se edita en estado LOCAL (respuesta instantánea al escribir)
+  // y se persiste en IndexedDB en segundo plano. Es de un solo escritor: solo su
+  // dueño la edita y las sesiones sin terminar no se sincronizan.
+  const [session, setSession] = useState<Session>(initialSession)
   const [showPicker, setShowPicker] = useState(false)
   const [restLeft, setRestLeft] = useState<number | null>(null)
   const [restTotal, setRestTotal] = useState(90)
   const [confirmFinish, setConfirmFinish] = useState(false)
   const restRef = useRef<number | null>(null)
+
+  // Guarda en BD cada cambio local (salta el primer render: ya está en BD).
+  const firstRender = useRef(true)
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false
+      return
+    }
+    void db.sessions.put(session)
+  }, [session])
 
   const exercises = useLiveQuery(() => db.exercises.toArray(), [])
   const exMap = new Map((exercises ?? []).map((e) => [e.id, e]))
@@ -177,19 +191,18 @@ function ActiveSession({
     }
   }, [restLeft])
 
-  async function update(mutate: (s: Session) => void) {
-    // transacción sobre el estado fresco: dos ediciones rápidas no se pisan
-    await db.transaction('rw', db.sessions, async () => {
-      const fresh = await db.sessions.get(session.id)
-      if (!fresh) return
-      mutate(fresh)
-      fresh.updatedAt = nowISO()
-      await db.sessions.put(fresh)
+  function update(mutate: (s: Session) => void) {
+    setSession((prev) => {
+      const next = structuredClone(prev)
+      mutate(next)
+      next.updatedAt = nowISO()
+      return next
     })
   }
 
   async function finish() {
     setConfirmFinish(false)
+    await db.sessions.put(session) // asegura que el último cambio local está en BD
     const res = await finishSession(session.id)
     onFinished(res)
   }
