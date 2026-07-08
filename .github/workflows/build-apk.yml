@@ -29,10 +29,10 @@ jobs:
       - name: Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Aceptar licencias e instalar plataformas
+      - name: Instalar plataformas Android
         run: |
           yes | sdkmanager --licenses >/dev/null 2>&1 || true
-          sdkmanager "platform-tools" "platforms;android-34" "platforms;android-35" "build-tools;34.0.0" "build-tools;35.0.0" >/dev/null
+          sdkmanager "platform-tools" "platforms;android-35" "platforms;android-36" "build-tools;35.0.0" "build-tools;36.0.0" >/dev/null
 
       - name: Instalar dependencias
         run: npm ci
@@ -40,14 +40,11 @@ jobs:
       - name: Compilar web (Vite)
         run: npm run build
 
-      - name: Generar proyecto Android (Capacitor)
-        run: npx cap add android
+      - name: Sincronizar web → Android
+        run: npx cap sync android
 
       - name: Generar iconos y splash
         run: npx @capacitor/assets generate --android
-
-      - name: Sincronizar web → Android
-        run: npx cap sync android
 
       - name: Compilar APK (debug)
         run: |

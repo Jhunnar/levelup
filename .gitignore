@@ -12,10 +12,6 @@ dist
 dist-ssr
 *.local
 
-# Proyectos nativos de Capacitor (se generan en CI al construir la APK)
-/android
-/ios
-
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
